@@ -1,0 +1,215 @@
+# JavSP 本地网络部署专用配置文件
+# 本配置针对Docker容器化网络部署进行了优化
+
+################################
+# 扫描器配置
+################################
+scanner:
+  # 推测番号前忽略文件名中的特定字符串（忽略大小写，以英文分号;分隔）
+  ignored_id_pattern:
+    - '(144|240|360|480|720|1080)[Pp]'
+    - '[24][Kk]'
+    - '\w+2048\.com'
+    - 'Carib(beancom)?'
+    - '[^a-z\d](f?hd|lt)[^a-z\d]'
+  
+  # 网络部署模式下的输入目录（容器内路径）
+  input_directory: "/app/input"
+  
+  # 支持的影片文件扩展名
+  filename_extensions: [.3gp, .avi, .f4v, .flv, .iso, .m2ts, .m4v, .mkv, .mov, .mp4, .mpeg, .rm, .rmvb, .ts, .vob, .webm, .wmv, .strm, .mpg]
+  
+  # 扫描时忽略的文件夹模式
+  ignored_folder_name_pattern: 
+    - '^\..*'           # 隐藏文件夹
+    - '^#recycle$'      # 回收站
+    - '^#整理完成$'      # 已整理文件夹
+    - '^#不要扫描$'      # 明确排除的文件夹
+    - '^@eaDir$'        # Synology NAS缓存文件夹
+    - '^\.DS_Store$'    # macOS系统文件
+    - '^Thumbs\.db$'    # Windows缩略图缓存
+  
+  # 最小文件大小（过滤预览文件）
+  minimum_size: 200MiB
+  
+  # 跳过已有NFO文件的目录
+  skip_nfo_dir: false
+  
+  # 网络部署时禁用手动交互
+  manual: false
+
+################################
+# 网络配置（针对容器化部署优化）
+################################
+network:
+  # 代理设置（如需要可配置）
+  proxy_server: null
+  
+  # 免代理地址（定期更新）
+  proxy_free:
+    avsox: 'https://avsox.click'
+    javbus: 'https://www.seedmm.help'
+    javdb: 'https://javdb368.com'
+    javlib: 'https://www.y78k.com'
+  
+  # 网络重试次数（容器环境下适当增加）
+  retry: 5
+  
+  # 网络超时时间（容器环境下适当延长）
+  timeout: PT30S
+
+################################
+# 爬虫配置
+################################
+crawler:
+  # 使用的爬虫站点列表
+  selection:
+    normal: [airav, avsox, javbus, javdb, javlib, jav321, mgstage, prestige]
+    fc2: [fc2, avsox, javdb, javmenu, fc2ppvdb]
+    cid: [fanza]
+    getchu: [dl_getchu]
+    gyutto: [gyutto]
+  
+  # 爬虫成功的最低要求字段
+  required_keys: [cover, title]
+  
+  # 启用努力爬取模式（获取更丰富信息）
+  hardworking: true
+  
+  # 使用网站番号作为最终番号
+  respect_site_avid: true
+  
+  # FC2Fan本地路径（如有镜像）
+  fc2fan_local_path: null
+  
+  # 爬取间隔（网络部署时适当增加以避免被封）
+  sleep_after_scraping: PT2S
+  
+  # JavaDB封面使用策略
+  use_javdb_cover: fallback
+  
+  # 统一女优艺名
+  normalize_actress_name: true
+
+################################
+# 整理器配置（网络共享路径优化）
+################################
+summarizer:
+  # 启用文件移动（网络部署推荐）
+  move_files: true
+
+  # 路径配置
+  path: 
+    # 输出文件夹模式（使用共享目录）
+    output_folder_pattern: '/app/output/{actress}/[{num}] {title}'
+    
+    # 基础文件名模式
+    basename_pattern: '{num}'
+    
+    # 最大路径长度（考虑跨平台兼容性）
+    length_maximum: 200
+    
+    # 按字节计算路径长度
+    length_by_byte: true
+    
+    # 最多包含的女优数量
+    max_actress_count: 5
+    
+    # 使用硬链接（网络环境不推荐）
+    hard_link: false
+
+  # 标题处理
+  title:
+    # 删除尾部女优名
+    remove_trailing_actor_name: true
+
+  # 默认替代信息
+  default:
+    title: '#未知标题'
+    actress: '#未知女优'
+    series: '#未知系列'
+    director: '#未知导演'
+    producer: '#未知制作商'
+    publisher: '#未知发行商'
+
+  # NFO文件配置
+  nfo:
+    basename_pattern: "movie"
+    title_pattern: '{num} {title}'
+    custom_genres_fields: ['{genre}', '{censor}']
+    custom_tags_fields: ['{genre}', '{censor}']
+  
+  # 审查信息表示
+  censor_options_representation: ['无码', '有码', '打码情况未知']
+
+  # 封面配置
+  cover:
+    basename_pattern: "poster"
+    # 网络部署时启用高清封面（如带宽允许）
+    highres: true
+    # 禁用水印标签（避免跨平台兼容问题）
+    add_label: false
+    
+    # AI裁剪配置
+    crop:
+      on_id_pattern:
+        - '^\d{6}[-_]\d{3}$'
+        - '^ARA'
+        - '^SIRO'
+        - '^GANA'
+        - '^MIUM'
+        - '^HHL'
+      # 网络部署时禁用AI裁剪（减少依赖复杂度）
+      engine: null
+
+  # 横版封面配置
+  fanart:
+    basename_pattern: "fanart"
+
+  # 剧照配置
+  extra_fanarts:
+    enabled: true
+    # 网络部署时增加间隔避免过载
+    scrap_interval: PT3S
+
+################################
+# 翻译配置
+################################
+translator:
+  # 网络部署时默认禁用翻译（减少外部依赖）
+  engine: null
+  
+  # 翻译字段配置
+  fields: 
+    title: false
+    plot: false
+
+################################
+# 其他配置
+################################
+other:
+  # 网络部署时禁用交互模式
+  interactive: false
+  
+  # 禁用更新检查（容器环境）
+  check_update: false
+  
+  # 禁用自动更新
+  auto_update: false
+
+################################
+# 网络部署专用扩展配置
+################################
+# 以下配置通过环境变量覆盖机制实现
+
+# 日志配置（通过环境变量）
+# JAVSP__LOGGING__LEVEL=INFO
+# JAVSP__LOGGING__FILE=/app/logs/javsp.log
+
+# 性能配置（通过环境变量）
+# JAVSP__PERFORMANCE__MAX_WORKERS=4
+# JAVSP__PERFORMANCE__MEMORY_LIMIT=1GB
+
+# 监控配置（通过环境变量）
+# JAVSP__MONITORING__ENABLED=true
+# JAVSP__MONITORING__INTERVAL=300

@@ -1,0 +1,260 @@
+{
+  "monitor_config": {
+    "version": "1.0.0",
+    "update_time": "2024-01-01T00:00:00Z",
+    "description": "JavSP 网络部署监控配置文件"
+  },
+  
+  "system_monitoring": {
+    "enabled": true,
+    "check_interval": 60,
+    "metrics": {
+      "cpu_usage": {
+        "enabled": true,
+        "threshold_warning": 70,
+        "threshold_critical": 85,
+        "check_interval": 30
+      },
+      "memory_usage": {
+        "enabled": true,
+        "threshold_warning": 75,
+        "threshold_critical": 90,
+        "check_interval": 30
+      },
+      "disk_usage": {
+        "enabled": true,
+        "threshold_warning": 80,
+        "threshold_critical": 95,
+        "check_interval": 300,
+        "monitored_paths": ["/app/input", "/app/output", "/app/logs"]
+      },
+      "network_io": {
+        "enabled": true,
+        "threshold_warning": 100,
+        "threshold_critical": 200,
+        "unit": "MB/s"
+      }
+    }
+  },
+  
+  "container_monitoring": {
+    "enabled": true,
+    "check_interval": 60,
+    "containers": ["javsp-server", "javsp-watcher"],
+    "metrics": {
+      "container_status": {
+        "enabled": true,
+        "expected_status": "running"
+      },
+      "container_restart_count": {
+        "enabled": true,
+        "threshold_warning": 3,
+        "threshold_critical": 10,
+        "time_window": 3600
+      },
+      "container_memory": {
+        "enabled": true,
+        "threshold_warning": "1.5GB",
+        "threshold_critical": "2GB"
+      },
+      "container_cpu": {
+        "enabled": true,
+        "threshold_warning": 80,
+        "threshold_critical": 95
+      }
+    }
+  },
+  
+  "application_monitoring": {
+    "enabled": true,
+    "check_interval": 120,
+    "metrics": {
+      "processing_queue": {
+        "enabled": true,
+        "threshold_warning": 50,
+        "threshold_critical": 100,
+        "check_stale_jobs": true,
+        "stale_threshold": 3600
+      },
+      "success_rate": {
+        "enabled": true,
+        "threshold_warning": 80,
+        "threshold_critical": 60,
+        "time_window": 86400
+      },
+      "processing_time": {
+        "enabled": true,
+        "threshold_warning": 1800,
+        "threshold_critical": 3600,
+        "unit": "seconds"
+      },
+      "error_rate": {
+        "enabled": true,
+        "threshold_warning": 10,
+        "threshold_critical": 25,
+        "time_window": 3600,
+        "unit": "percentage"
+      }
+    }
+  },
+  
+  "network_monitoring": {
+    "enabled": true,
+    "check_interval": 300,
+    "metrics": {
+      "smb_shares": {
+        "enabled": true,
+        "shares": ["javsp-input", "javsp-output"],
+        "timeout": 10
+      },
+      "web_crawlers": {
+        "enabled": true,
+        "test_urls": [
+          "https://www.javbus.com",
+          "https://javdb.com",
+          "https://www.javlibrary.com"
+        ],
+        "timeout": 30,
+        "expected_status": 200
+      },
+      "dns_resolution": {
+        "enabled": true,
+        "test_domains": ["google.com", "github.com"],
+        "timeout": 5
+      }
+    }
+  },
+  
+  "log_monitoring": {
+    "enabled": true,
+    "check_interval": 180,
+    "log_files": [
+      {
+        "name": "javsp_main",
+        "path": "/app/logs/javsp.log",
+        "patterns": {
+          "error": ["ERROR", "CRITICAL", "Exception", "Failed"],
+          "warning": ["WARN", "WARNING", "Timeout"],
+          "success": ["SUCCESS", "Completed", "Finished"]
+        }
+      },
+      {
+        "name": "batch_process",
+        "path": "/app/logs/batch_process.log",
+        "patterns": {
+          "error": ["处理失败", "ERROR", "异常"],
+          "warning": ["WARN", "跳过", "重试"],
+          "success": ["处理完成", "SUCCESS"]
+        }
+      }
+    ],
+    "error_thresholds": {
+      "errors_per_hour": 10,
+      "consecutive_errors": 5
+    }
+  },
+  
+  "alerting": {
+    "enabled": true,
+    "channels": {
+      "webhook": {
+        "enabled": false,
+        "url": "",
+        "timeout": 10,
+        "retry_count": 3
+      },
+      "email": {
+        "enabled": false,
+        "smtp_server": "",
+        "smtp_port": 587,
+        "username": "",
+        "password": "",
+        "from_address": "",
+        "to_addresses": []
+      },
+      "file": {
+        "enabled": true,
+        "path": "/app/logs/alerts.log"
+      }
+    },
+    "rules": {
+      "critical_only": false,
+      "suppress_duration": 3600,
+      "escalation_levels": ["warning", "critical"]
+    }
+  },
+  
+  "performance_optimization": {
+    "auto_scaling": {
+      "enabled": false,
+      "cpu_threshold": 80,
+      "memory_threshold": 85,
+      "max_instances": 3
+    },
+    "resource_limits": {
+      "container_memory": "2GB",
+      "container_cpu": "2",
+      "max_processing_time": 7200,
+      "concurrent_jobs": 2
+    },
+    "cleanup_policies": {
+      "log_retention_days": 30,
+      "temp_file_cleanup": true,
+      "old_output_cleanup": false,
+      "cleanup_schedule": "0 3 * * *"
+    },
+    "cache_optimization": {
+      "enabled": true,
+      "cache_size": "500MB",
+      "cache_ttl": 86400
+    }
+  },
+  
+  "health_checks": {
+    "enabled": true,
+    "endpoints": [
+      {
+        "name": "container_health",
+        "type": "docker",
+        "container": "javsp-server",
+        "interval": 60
+      },
+      {
+        "name": "file_system",
+        "type": "filesystem",
+        "paths": ["/app/input", "/app/output"],
+        "interval": 300
+      },
+      {
+        "name": "network_connectivity",
+        "type": "network",
+        "targets": ["8.8.8.8", "1.1.1.1"],
+        "interval": 600
+      }
+    ],
+    "failure_threshold": 3,
+    "recovery_actions": {
+      "restart_container": true,
+      "clear_temp_files": true,
+      "notify_admin": true
+    }
+  },
+  
+  "reporting": {
+    "enabled": true,
+    "reports": {
+      "daily_summary": {
+        "enabled": true,
+        "schedule": "0 6 * * *",
+        "include_metrics": ["processing_stats", "resource_usage", "error_summary"]
+      },
+      "weekly_report": {
+        "enabled": true,
+        "schedule": "0 8 * * 1",
+        "include_metrics": ["performance_trends", "capacity_planning", "optimization_recommendations"]
+      }
+    },
+    "output_formats": ["json", "text"],
+    "retention_days": 90
+  }
+}

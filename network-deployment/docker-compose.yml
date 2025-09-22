@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  javsp:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+    image: javsp:latest
+    container_name: javsp-server
+    hostname: javsp-server
+    
+    # 端口映射（预留用于未来可能的Web界面）
+    # ports:
+    #   - "8080:8080"
+    
+    volumes:
+      # 配置文件（只读挂载）
+      - ./config/config.yml:/app/config.yml:ro
+      # 数据目录
+      - ./data:/app/data
+      # 输入目录（影片存放）
+      - ./input:/app/input
+      # 输出目录（整理结果）
+      - ./output:/app/output
+      # 日志目录
+      - ./logs:/app/logs
+      # 女优别名数据
+      - ../data/actress_alias.json:/app/data/actress_alias.json:ro
+    
+    environment:
+      # Python环境变量
+      - PYTHONUNBUFFERED=1
+      - PYTHONIOENCODING=utf-8
+      # 时区设置
+      - TZ=Asia/Shanghai
+      # JavSP特定环境变量
+      - JAVSP__OTHER__INTERACTIVE=false
+      - JAVSP__SCANNER__INPUT_DIRECTORY=/app/input
+      - JAVSP__SUMMARIZER__PATH__OUTPUT_FOLDER_PATTERN=/app/output/{actress}/[{num}] {title}
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # 网络配置
+    networks:
+      - javsp-network
+    
+    # 重启策略
+    restart: unless-stopped
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "ls", "/app"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # 默认命令：监控模式（持续运行）
+    command: ["bash", "-c", "while true; do if [ -n \"$(find /app/input -name '*.mp4' -o -name '*.mkv' -o -name '*.avi' -o -name '*.mov' -o -name '*.wmv' -o -name '*.flv' -newer /tmp/last_check 2>/dev/null)\" ]; then echo 'Found new files, processing...'; /app/.venv/bin/javsp -i /app/input; touch /tmp/last_check; echo 'Processing complete'; fi; sleep 60; done"]
+
+  # 文件监控服务（可选）
+  file-watcher:
+    image: alpine:latest
+    container_name: javsp-watcher
+    volumes:
+      - ./input:/watch/input:ro
+      - ./scripts/monitoring:/scripts:ro
+    networks:
+      - javsp-network
+    depends_on:
+      - javsp
+    restart: unless-stopped
+    command: ["sh", "-c", "apk add --no-cache inotify-tools && /scripts/watch_files.sh"]
+    profiles:
+      - watcher
+
+networks:
+  javsp-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+# 数据卷（可选，用于持久化存储）
+volumes:
+  javsp-data:
+    driver: local
+  javsp-logs:
+    driver: local

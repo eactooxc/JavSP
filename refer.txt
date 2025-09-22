@@ -1,0 +1,13 @@
+    javguru: 'https://jav.guru/?s=%s'
+    javpop: 'http://javpop.com/index.php?s=%s'
+    qfanw: 'http://www.qfanw.com/search/%s'
+    javpop: 'http://javpop.com/index.php?s=%s'
+    javhd: 'https://javhd.today/search/video/?s=%s'
+    2chav: 'http://2chav.com/?tag=%s'
+    
+    
+    D:\GitHub\Sidee\JavSP\Out\#女优名\
+├── 女优名 - [年份] 标题 [番号].mp4
+├── 女优名 - [年份] 标题 [番号].jpg  (fanart)
+├── 女优名 - [年份] 标题 [番号].nfo
+└── 女优名 - [年份] 标题 [番号].png  (poster)

@@ -339,7 +339,7 @@ def generate_names(movie: Movie):
                 movie.basename = basename
                 movie.nfo_file = os.path.join(save_dir, Cfg().summarizer.nfo.basename_pattern.format(**copyd) + '.nfo')
                 movie.fanart_file = os.path.join(save_dir, Cfg().summarizer.fanart.basename_pattern.format(**copyd) + '.jpg')
-                movie.poster_file = os.path.join(save_dir, Cfg().summarizer.cover.basename_pattern.format(**copyd) + '.jpg')
+                movie.poster_file = os.path.join(save_dir, Cfg().summarizer.cover.basename_pattern.format(**copyd) + '.png')
                 return legalize_info()
     else:
         # 以防万一，当整理路径非常深或者标题起始很长一段没有标点符号时，硬性截短生成的名称
@@ -359,7 +359,7 @@ def generate_names(movie: Movie):
 
         movie.nfo_file = os.path.join(save_dir, Cfg().summarizer.nfo.basename_pattern.format(**copyd) + '.nfo')
         movie.fanart_file = os.path.join(save_dir, Cfg().summarizer.fanart.basename_pattern.format(**copyd) + '.jpg')
-        movie.poster_file = os.path.join(save_dir, Cfg().summarizer.cover.basename_pattern.format(**copyd) + '.jpg')
+        movie.poster_file = os.path.join(save_dir, Cfg().summarizer.cover.basename_pattern.format(**copyd) + '.png')
 
         return legalize_info()
 
@@ -369,7 +369,7 @@ def reviewMovieID(all_movies, root):
     logger.info('进入手动模式检查番号: ')
     for i, movie in enumerate(all_movies, start=1):
         id = repr(movie)[7:-2]
-        print(f'[{i}/{count}]\t{Fore.LIGHTMAGENTA_EX}{id}{Style.RESET_ALL}, 对应文件:')
+        print(f'[{i}/{count}]\t{Fore.YELLOW}番号: {Fore.LIGHTMAGENTA_EX}{id}{Style.RESET_ALL}, 对应文件:')
         relpaths = [os.path.relpath(i, root) for i in movie.files]
         print('\n'.join(['  '+i for i in relpaths]))
         s = prompt("回车确认当前番号，或直接输入更正后的番号（如'ABC-123'或'cid:sqte00300'）", "更正后的番号")
@@ -400,6 +400,11 @@ SUBTITLE_MARK_FILE = Image.open(os.path.abspath(resource_path('image/sub_mark.pn
 UNCENSORED_MARK_FILE = Image.open(os.path.abspath(resource_path('image/unc_mark.png')))
 
 def process_poster(movie: Movie):
+    """处理海报图片，如果没有fanart则跳过"""
+    if not os.path.exists(movie.fanart_file):
+        logger.warning(f'Fanart文件不存在，跳过poster处理: {movie.fanart_file}')
+        return
+    
     def should_use_ai_crop_match(label):
         for r in Cfg().summarizer.cover.crop.on_id_pattern:
             if re.match(r, label):
@@ -408,7 +413,7 @@ def process_poster(movie: Movie):
     crop_engine = None
     if (movie.info.uncensored or
        movie.data_src == 'fc2' or
-       should_use_ai_crop_match(movie.info.label.upper())):
+       should_use_ai_crop_match(movie.info.label.upper() if hasattr(movie.info, 'label') else '')):
         crop_engine = Cfg().summarizer.cover.crop.engine
     cropper = get_cropper(crop_engine)
     fanart_image = Image.open(movie.fanart_file)
@@ -448,6 +453,14 @@ def RunNormalMode(all_movies):
             inner_bar.set_description(f'启动并发任务')
             all_info = parallel_crawler(movie, inner_bar)
             msg = f'为其配置的{len(Cfg().crawler.selection[movie.data_src])}个抓取器均未获取到影片信息'
+            if not all_info:
+                # 如果所有爆虫都失败，创建一个默认的MovieInfo
+                logger.warning(f'所有数据源都无法获取信息，使用默认信息生成NFO')
+                movie.info = MovieInfo(movie.dvdid if movie.dvdid else movie.cid)
+                movie.info.title = f'未知标题 - {movie.dvdid or movie.cid}'
+                movie.info.dvdid = movie.dvdid
+                movie.info.cid = movie.cid
+                all_info = {'default': movie.info}
             check_step(all_info, msg)
 
             inner_bar.set_description('汇总数据')
@@ -465,22 +478,27 @@ def RunNormalMode(all_movies):
                 os.makedirs(movie.save_dir)
 
             inner_bar.set_description('下载封面图片')
-            if Cfg().summarizer.cover.highres:
-                cover_dl = download_cover(movie.info.covers, movie.fanart_file, movie.info.big_covers)
+            if movie.info.covers or movie.info.big_covers:
+                if Cfg().summarizer.cover.highres:
+                    cover_dl = download_cover(movie.info.covers, movie.fanart_file, movie.info.big_covers)
+                else:
+                    cover_dl = download_cover(movie.info.covers, movie.fanart_file)
+                if cover_dl:
+                    cover, pic_path = cover_dl
+                    # 确保实际下载的封面的url与即将写入到movie.info中的一致
+                    if cover != movie.info.cover:
+                        movie.info.cover = cover
+                    # 根据实际下载的封面的格式更新fanart/poster等图片的文件名
+                    if pic_path != movie.fanart_file:
+                        movie.fanart_file = pic_path
+                        actual_ext = os.path.splitext(pic_path)[1]
+                        # poster文件保持.png格式，不跟随下载的文件格式变化
+                        # movie.poster_file = os.path.splitext(movie.poster_file)[0] + actual_ext
+                    process_poster(movie)
+                else:
+                    logger.warning('封面下载失败，跳过封面处理')
             else:
-                cover_dl = download_cover(movie.info.covers, movie.fanart_file)
-            check_step(cover_dl, '下载封面图片失败')
-            cover, pic_path = cover_dl
-            # 确保实际下载的封面的url与即将写入到movie.info中的一致
-            if cover != movie.info.cover:
-                movie.info.cover = cover
-            # 根据实际下载的封面的格式更新fanart/poster等图片的文件名
-            if pic_path != movie.fanart_file:
-                movie.fanart_file = pic_path
-                actual_ext = os.path.splitext(pic_path)[1]
-                movie.poster_file = os.path.splitext(movie.poster_file)[0] + actual_ext
-
-            process_poster(movie)
+                logger.info('未找到封面信息，跳过封面下载')
 
             check_step(True)
 
@@ -510,6 +528,10 @@ def RunNormalMode(all_movies):
                 check_step(True)
 
             inner_bar.set_description('写入NFO')
+            # 将文件路径信息传递给NFO生成函数
+            movie.info.poster_file = movie.poster_file
+            movie.info.fanart_file = movie.fanart_file
+            movie.info.video_file = movie.files[0] if movie.files else None
             write_nfo(movie.info, movie.nfo_file)
             check_step(True)
             if Cfg().summarizer.move_files:
